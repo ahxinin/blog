@@ -1,7 +1,7 @@
 ---
 title: 高性能MySQL的实现策略 
 date: 2023-03-20 21:54:00
-permalink: /pages/3fe7f6/
+permalink: /pages/3fe7f7/
 sidebar: auto
 categories:
   - 随笔
