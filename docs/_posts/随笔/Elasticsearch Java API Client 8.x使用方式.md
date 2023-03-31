@@ -1,5 +1,5 @@
 ---
-title: 高性能MySQL的实现策略 
+title: Elasticsearch Java API Client 8.x使用方式
 date: 2023-03-31 22:43:00
 permalink: /pages/3fe7f8/
 sidebar: auto
