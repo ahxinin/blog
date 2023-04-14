@@ -1,5 +1,5 @@
 ---
-title: Elasticsearch Java API Client 8.x使用方式
+title: Elasticsearch Client 进阶使用
 date: 2023-04-14 23:31:00
 permalink: /pages/3fe7f9/
 sidebar: auto
