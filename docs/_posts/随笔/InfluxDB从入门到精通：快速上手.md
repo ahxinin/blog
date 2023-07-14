@@ -38,7 +38,7 @@ InfluxDB是一个开源的时间序列平台。包括用于存储和查询的API
 -   Point：单条数据记录是由 measurement，tag keys, tag values, field key, timestamp来定义的；
 -   Series：一组具有相同 measurement, tag keys, tag values的点；
 
-![](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/f355bfd5dc31467db5c21978f1d83ecb~tplv-k3u1fbpfcp-zoom-1.image)
+![](https://blog-7gg8g2uhb3511448-1254197092.tcloudbaseapp.com/img_convert/f355bfd5dc31467db5c21978f1d83ecb~tplv-k3u1fbpfcp.png)
 
 ## 2.InfluxDB安装
 
@@ -80,13 +80,13 @@ InfluxDB启动成功后，支持使用命令行方式或者管理后台进行管
 -   timestamp：第二个未被转义的空格之后的整数内容；
 -   行与行之间用换行符分割(\n)。行协议对空格敏感；
 
-![](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/a12bb59a1d344b8abbdc51e8ee58349b~tplv-k3u1fbpfcp-zoom-1.image)
+![](https://blog-7gg8g2uhb3511448-1254197092.tcloudbaseapp.com/img_convert/a12bb59a1d344b8abbdc51e8ee58349b~tplv-k3u1fbpfcp-zoom.png)
 
 ### 3.3.查询数据
 
 #### 查询示例
 
-![](https://p3-juejin.byteimg.com/tos-cn-i-k3u1fbpfcp/b5805dbb5c9e4e878b4a7e0681c51b3e~tplv-k3u1fbpfcp-zoom-1.image)
+![](https://blog-7gg8g2uhb3511448-1254197092.tcloudbaseapp.com/img_convert/b5805dbb5c9e4e878b4a7e0681c51b3e~tplv-k3u1fbpfcp-zoom-1.png)
 
 ### 3.4.处理数据
 
