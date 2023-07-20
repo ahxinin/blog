@@ -1,7 +1,7 @@
 ﻿---
 title: InfluxDB从入门到精通：使用logstash解析日志文件写入数据到InfluxDB
 date: 2023-07-19 21:00:00
-permalink: /pages/3fe7f74j/
+permalink: /pages/3787f74j43/
 sidebar: auto
 categories:
   - 随笔
