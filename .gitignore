@@ -1,0 +1,6 @@
+
+node_modules/
+ossutil_output/
+*.yml
+*.sh
+*.log

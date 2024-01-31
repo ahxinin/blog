@@ -1,0 +1,728 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="阿昕">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="1.基础架构 1.1.网络连接层位于最上层的客户端服务，包括连接处理、身份验证等功能，支持多种服务端语言，通过 API 接口与 MySQL 建立连接。  1.2.数据库服务层MySQL 的核心功能都在这一层，包括查询解析、分析、优化，以及所有的内置函数(例如:日期、数学函数)，所有跨存储引擎的功能也都在这一层实现：存储过程、触发器、视图等。 1.2.1.连接管理: 每个客户端连接都会在服务器进程中">
+<meta property="og:type" content="article">
+<meta property="og:title" content="高性能MySQL的实现策略">
+<meta property="og:url" content="https://ahxinin.com/%E9%AB%98%E6%80%A7%E8%83%BDMySQL%E7%9A%84%E5%AE%9E%E7%8E%B0%E7%AD%96%E7%95%A5.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="1.基础架构 1.1.网络连接层位于最上层的客户端服务，包括连接处理、身份验证等功能，支持多种服务端语言，通过 API 接口与 MySQL 建立连接。  1.2.数据库服务层MySQL 的核心功能都在这一层，包括查询解析、分析、优化，以及所有的内置函数(例如:日期、数学函数)，所有跨存储引擎的功能也都在这一层实现：存储过程、触发器、视图等。 1.2.1.连接管理: 每个客户端连接都会在服务器进程中">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ahxinin.com/img_convert/1.png">
+<meta property="article:published_time" content="2023-03-19T16:00:00.000Z">
+<meta property="article:modified_time" content="2024-01-30T10:02:22.414Z">
+<meta property="article:author" content="阿昕">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://ahxinin.com/img_convert/1.png">
+  
+  
+  
+  <title>高性能MySQL的实现策略 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"ahxinin.com","root":"/","version":"1.9.7","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.1.1"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>阿昕的博客</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="高性能MySQL的实现策略"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2023-03-20 00:00" pubdate>
+          2023年3月20日 凌晨
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.7k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          32 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">高性能MySQL的实现策略</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h2 id="1-基础架构"><a href="#1-基础架构" class="headerlink" title="1.基础架构"></a>1.基础架构</h2><p><img src="/img_convert/1.png" srcset="/img/loading.gif" lazyload alt="在这里插入图片描述"></p>
+<h3 id="1-1-网络连接层"><a href="#1-1-网络连接层" class="headerlink" title="1.1.网络连接层"></a>1.1.网络连接层</h3><p>位于最上层的客户端服务，包括连接处理、身份验证等功能，支持多种服务端语言，通过 API 接口与 MySQL 建立连接。</p>
+<hr>
+<h3 id="1-2-数据库服务层"><a href="#1-2-数据库服务层" class="headerlink" title="1.2.数据库服务层"></a>1.2.数据库服务层</h3><p>MySQL 的核心功能都在这一层，包括查询解析、分析、优化，以及所有的内置函数(例如:日期、数学函数)，所有跨存储引擎的功能也都在这一层实现：存储过程、触发器、视图等。</p>
+<p><strong>1.2.1.连接管理:</strong></p>
+<p>每个客户端连接都会在服务器进程中拥有一个线程，该连接的查询只会在这个单独的线程中执行，该进程驻留在内核或者 CPU 上。服务器维护了一个缓冲区，作为连接池，存储已就绪的线程。</p>
+<p><strong>1.2.2.优化与执行:</strong></p>
+<p>MySQL 解析查询以创建解析树，然后对其进行各种优化，包括重写查询，决定表的读取顺序，以及选择合适的索引等。</p>
+<hr>
+<h3 id="1-3-存储引擎层"><a href="#1-3-存储引擎层" class="headerlink" title="1.3.存储引擎层"></a>1.3.存储引擎层</h3><p>存储引擎负责 MySQL 中数据的存储和提取，服务器通过存储引擎 API 进行通信。这些 API 屏蔽了不同存储引擎之间的差异，使得它们对上面的查询层基本上是透明的。最常用的存储引擎是 InnoDB。</p>
+<hr>
+<h3 id="1-4-系统文件层"><a href="#1-4-系统文件层" class="headerlink" title="1.4.系统文件层"></a>1.4.系统文件层</h3><p><strong>1.4.1.binlog</strong></p>
+<ul>
+<li>binlog 是 MySQL 的 Server 层实现的，所有引擎都可以使用，用于归档；</li>
+<li>binlog 是逻辑日志，记录的是这个语句的原始逻辑，比如“给 ID&#x3D;2 这一行的 c 字段加 1 ”；binlog 是可以追加写入的，不会覆盖之前的日志；</li>
+</ul>
+<p><strong>1.4..2.redo log</strong></p>
+<ul>
+<li>redo log 是 InnoDB 引擎实现的，用于 Write-Ahead Logging(提升效率)、crash-safe(故障恢复)；</li>
+<li>redo log 是物理日志，记录的是“在某个数据页上做了什么修改”；redo log 是循环写的，空间固定会用完；</li>
+</ul>
+<p><strong>1.4..3.undo log</strong></p>
+<ul>
+<li>undo log 提供了回滚和多版本控制(MVCC)功能；</li>
+<li>unlo log 用于存放数据被修改之前的值；</li>
+</ul>
+<hr>
+<h2 id="2-Schema-设计"><a href="#2-Schema-设计" class="headerlink" title="2.Schema 设计"></a>2.Schema 设计</h2><h3 id="2-1-数据类型选择"><a href="#2-1-数据类型选择" class="headerlink" title="2.1.数据类型选择"></a>2.1.数据类型选择</h3><ul>
+<li>更小的通常更好：尽可能使用能够正确存储和表示数据的最小数据类型。更小的数据类型通常更快，因为它们占用的磁盘、内存和 CPU 缓存的空间更少，并且处理时需要的 CPU 周期也更少；</li>
+<li>简单为好：简单数据类型的操作通常需要更少的 CPU 周期。例如，整型数据比字符型数据的比较操作代价更低（因为字符集和排序规则使得字符型数据的比较更加复杂）；应该将日期和时间存储为 MySQL 的内置类型而非字符串类型；</li>
+<li>尽量避免存储 NULL：通常情况下最好指定列为 NOT NULL，除非明确需要存储 NULL 值。因为可为 NULL 的列，对 MySQL 来说更难优化，在索引、索引统计和值比较时都更复杂；在存储时需要特殊处理，会占用更多的存储空间；（在调优时通常没有必要将可为 NULL 的列改成 NOT NULL，带来的性能提升比较小）</li>
+</ul>
+<hr>
+<h3 id="2-2-整数类型"><a href="#2-2-整数类型" class="headerlink" title="2.2.整数类型"></a>2.2.整数类型</h3><p>整数的类型有：TINYINT、SMALLINT、MEDIUMINT、INT 和 BIGINT，分别使用 8、16、24、32、和 64 位存储空间，可以存储的值的范围从 -2 的(n-1)次方到 2 的(n-1)次方-1，其中 n 是存储空间的位数。</p>
+<p>整数类型有可选的 UNSIGNED 属性，表示不允许负值，大致上可以使正整数的上限提高一倍。</p>
+<p>MySQL 可以为整数类型指定宽度，只是规定了 MySQL 的客户端显示字符的个数，不会限制值的合法范围。</p>
+<hr>
+<h3 id="2-3-实数类型"><a href="#2-3-实数类型" class="headerlink" title="2.3.实数类型"></a>2.3.实数类型</h3><p>实数是带有小数部分的数字。也可以使用 DECIMAL 存储比 BIGINT 还大的整数，MySQL 既支持精确类型，也支持不精确类型。</p>
+<p>FLOAT 和 DOUBLE 类型支持使用标准的浮点运算进行近似计算。FLOAT 列使用 4 字节的存储空间，DOUBLE 占用 8 字节。</p>
+<p>DECIMAL 需要额外的存储空间和计算成本，尽量在对小数需要进行精确计算时进行使用，例如：存储财务数据。在一些大容量的场景，可以考虑使用 BIGINT 代替 DECIMAL，将需要存储的货币单位根据小数的位数乘以相应的倍数即可，可以避免浮点存储计算不精确和 DECIMAL 精确计算代价高的问题。</p>
+<hr>
+<h3 id="2-4-字符串类型"><a href="#2-4-字符串类型" class="headerlink" title="2.4.字符串类型"></a>2.4.字符串类型</h3><p><strong>VARCHAR：</strong></p>
+<ul>
+<li>用于存储可变长度的字符串，比固定长度的类型更节省空间，因为它仅使用必要的空间；</li>
+<li>但是由于行是可变长度的，在更新时可能会增长，将导致额外的工作；</li>
+<li>VARCHAR 需要额外使用 1 或者 2 字节记录字符串的长度；</li>
+<li>适用场景：字符串的最大长度远大于平均长度；列的更新很少；</li>
+</ul>
+<p><strong>CHAR：</strong></p>
+<ul>
+<li>CHAR 是固定长度的，非常适合存储较短的字符串，或者所有值的长度都几乎相同的情况；</li>
+<li>对于经常修改的数据，CHAR 比 VARCHAR 更好，因为固定长度的行不容易出现碎片；</li>
+</ul>
+<p><strong>BLOB 和 TEXT 类型：</strong></p>
+<ul>
+<li>BLOB 和 TEXT 类型是为了存储很大的数据而设计的字符串数据类型，分别采用二级制和字符串方式存储；</li>
+<li>MySQL 将 BOLO 和 TEXT 值当作具有自己标识的对象来处理，内容太多时会使用外部存储区域；</li>
+</ul>
+<hr>
+<h3 id="2-5-日期和时间类型"><a href="#2-5-日期和时间类型" class="headerlink" title="2.5.日期和时间类型"></a>2.5.日期和时间类型</h3><p><strong>DATETIME:</strong></p>
+<ul>
+<li>可以保存从 1000 年到 9999 年范围内的数值，精度为 1 微秒；</li>
+<li>以 YYYYMMDDHHMMSS 格式存储压缩成整数的日期和时间，与时区无关，需要 8 字节的存储空间；</li>
+</ul>
+<p><strong>TIMESTAMP：</strong></p>
+<ul>
+<li>与 UNIX 时间戳相同，存储自 1970 年 1 月 1 日以来经过的秒数，使用 4 字节存储空间，只能表示 1970 年 2038 年范围内的数据；</li>
+<li>时间戳显示的值依赖于时区，MySQL 服务器、操作系统和客户端连接都有时区设置；</li>
+</ul>
+<hr>
+<h3 id="2-6-JSON-数据类型"><a href="#2-6-JSON-数据类型" class="headerlink" title="2.6.JSON 数据类型"></a>2.6.JSON 数据类型</h3><ul>
+<li>相比较于 SQL 列，JSON 列需要占用过多的存储空间，有额外的字符需要存储；</li>
+<li>查询速度上，SQL 列也更占优势；是否使用 JSON，取决于在数据库中使用 JSON 的便捷性是否大于性能；</li>
+</ul>
+<hr>
+<h3 id="2-7-其他数据类型"><a href="#2-7-其他数据类型" class="headerlink" title="2.7.其他数据类型"></a>2.7.其他数据类型</h3><p><strong>BIT：</strong></p>
+<ul>
+<li>可以使用 BIT 列存储一个或者多个 true&#x2F;false 值；在存储时不会节省任何存储空间；</li>
+<li>MySQL 在处理时将 BIT 视为字符串类型，在数字上下文中进行数据比较时会转换为数字，得到非预期结果，使用时需要谨慎；</li>
+<li>建议使用 TINYINT 进行代替；</li>
+</ul>
+<p><strong>IP：</strong></p>
+<ul>
+<li>IP 地址实际上是无符号整数，用小数点分隔只是为了方便阅读，因此应该将 IP 地址存储为无符合整数；</li>
+<li>MySQL 提供了 INET_ATON()和 INET_NTOA()函数在这两种表达形式之间进行转换；</li>
+</ul>
+<hr>
+<h3 id="2-8-schema-管理"><a href="#2-8-schema-管理" class="headerlink" title="2.8.schema 管理"></a>2.8.schema 管理</h3><p>如何在不影响数据库或者依赖它们的服务正常运行的情况下，进行 schema 的变更？</p>
+<p><strong>原生 DDL 语句：</strong></p>
+<p>MySQL 在 5.6 版本中引入了非阻塞的 schema 更改，对原生 DDL 的支持有限，在需要更改的表非常大时，可能会遇到回滚的情况。</p>
+<p><strong>外部的工具：</strong></p>
+<p>主要选择有 Percona 的 pt-online-schema-change 和 Github 的 gh-ost。实现原理是对正在更改的表进行完整的复制，执行完表结构变更，再把源表的全量数据和增量数据同步过去，最后进行表替换。</p>
+<hr>
+<h2 id="3-索引"><a href="#3-索引" class="headerlink" title="3.索引"></a>3.索引</h2><p>索引是存储引擎用于快速找到记录的一种数据结构。</p>
+<h3 id="3-1-索引的类型"><a href="#3-1-索引的类型" class="headerlink" title="3.1.索引的类型"></a>3.1.索引的类型</h3><p><strong>B-tree 索引：</strong></p>
+<ul>
+<li>是指使用 B-tree 数据结构来存储数据，在实际实现中，很多存储引擎使用的是 B+ Tree 索引；</li>
+<li>B-tree 索引能够加快数据访问的速度，因为有了索引，在查询某些条件的数据时，不需要全表扫描；从索引的根节点根据子节点的指针，依次向下层开始查找；</li>
+<li>B-tree 是按照索引列中的数据大小顺序存储的，非常适合按照范围进行查询；</li>
+</ul>
+<p><strong>自适应哈希索引：</strong></p>
+<p>InnoDB 存储引擎在发现某些索引值访问非常频繁时，会在原有 B-tree 索引之上，在内存中在构建一个哈希索引；</p>
+<p><strong>全文索引：</strong></p>
+<p>FULLTEXT 是一种特殊类型的索引，查找的是文本中的关键字，类似于搜索引擎；</p>
+<hr>
+<h3 id="3-2-B-tree-索引的使用"><a href="#3-2-B-tree-索引的使用" class="headerlink" title="3.2.B-tree 索引的使用"></a>3.2.B-tree 索引的使用</h3><p><strong>适用的查询类型：</strong></p>
+<ul>
+<li>全值匹配：和索引中的所有列匹配；</li>
+<li>匹配最左前缀：只使用第一列，或者前几列；</li>
+<li>匹配列前缀：只匹配某一列的值的开头部分；</li>
+<li>匹配范围值；</li>
+<li>精准匹配某一列而范围匹配另外一列；</li>
+<li>只访问索引的查询：查询只需要访问索引而无须访问数据行，也称之为覆盖索引；</li>
+</ul>
+<p><strong>索引排序：</strong></p>
+<ul>
+<li>因为索引树中的节点是有序的，除了按值查找，索引还可以用于查询中的 ORDER BY 操作；</li>
+<li>如果 ORDER BY 子句满足索引查询类型，则索引也可以用于这类的排序场景；</li>
+</ul>
+<p><strong>索引的限制：</strong></p>
+<ul>
+<li>不是按照索引的最左列开始查找，则无法使用索引；</li>
+<li>不能跳过索引中的列；</li>
+<li>如果查询中有某列的范围查询，则其右边所有列都无法使用索引优化查询；</li>
+</ul>
+<hr>
+<h3 id="3-3-索引的优点"><a href="#3-3-索引的优点" class="headerlink" title="3.3.索引的优点"></a>3.3.索引的优点</h3><ul>
+<li>索引大大减少了服务器需要扫描的数据量；</li>
+<li>索引可以帮助服务器避免排序和临时表；</li>
+<li>索引可以将随机 I&#x2F;O 变成顺序 I&#x2F;O；</li>
+</ul>
+<hr>
+<h3 id="3-4-高性能的索引策略"><a href="#3-4-高性能的索引策略" class="headerlink" title="3.4.高性能的索引策略"></a>3.4.高性能的索引策略</h3><p><strong>前缀索引：</strong></p>
+<ul>
+<li>为了提升索引性能，节省索引空间，可以只对字段的前一部分字符进行索引；</li>
+<li>针对 BLOB、TEXT 或者很长的 VARCHAR 类型的列，只支持使用前缀索引。</li>
+</ul>
+<p><strong>索引的选择性：</strong></p>
+<p>是指不重复的值(也称之为基数)和数据表的总记录数(T)的比值，范围是 1&#x2F;T 到 1 之间；索引的选择性越高则查询效率越高。</p>
+<p><strong>如何确定前缀索引的长度？</strong></p>
+<p>前缀索引的长度，既要足够长来保证较高的选择性，又不能太长(节省空间)；</p>
+<p>可以通过计算不同长度前缀和完整列，与总行数的比率，使用较接近的长度前缀；</p>
+<p><strong>多列索引：</strong></p>
+<p>索引的常见误区是为每列创建独立的索引，或者按照错误的顺序创建多列索引。</p>
+<p><strong>如何选择合适的索引列顺序：</strong></p>
+<p>根据经验法则：将选择性最高的列放到索引的最前列，在大部分场景下是有效的。</p>
+<p>但是索引性能不仅仅依赖于选择性，和查询条件的具体值，以及值的分布都有关，此时可以根据运行频率最高的查询来适当调整索引列的顺序。</p>
+<p><strong>聚簇索引：</strong></p>
+<p>聚簇索引是一种数据存储方式，InnoDB 的聚簇索引是在同一个结构中保存了 B-tree 索引和数据行。InnoDB 根据主键聚簇数据，如果没有定义主键，会选择唯一的非空索引代替，次之会隐式定义一个主键。</p>
+<p><strong>按主键顺序插入行：</strong></p>
+<p>如果 InnoDB 表中没有数据需要聚集，可以使用一个代理键来作为主键（例如 AUTO_INCREMENT 自增列），以保证数据行是按顺序写入的，来提升性能。</p>
+<p>随机的聚簇索引，例如 UUID 会使得数据没有任何聚集特性，插入也变得完全随机，应该尽量避免。</p>
+<p><strong>覆盖索引：</strong></p>
+<p>如果一个索引包含所有需要查询的字段的值，称之为覆盖索引。不需要回表查询，效率更高。</p>
+<p><strong>使用索引来排序：</strong></p>
+<p>只有当使用的顺序和 ORDER BY 子句的顺序完全一致，并且所有列的排序方向(顺序或者倒序)都一样时，MySQL 才能使用索引对结果进行排序。</p>
+<p>在 EXPLAIN 的输出结果中，type 列的值为”index”，说明 MySQL 使用了索引扫描来进行排序。</p>
+<hr>
+<h2 id="4-查询性能优化"><a href="#4-查询性能优化" class="headerlink" title="4.查询性能优化"></a>4.查询性能优化</h2><p>查询的生命周期，大致上可以分为：客户端连接到服务端，服务端进行语法解析，生成执行计划，执行，并给客户端返回结果。</p>
+<p>其中“执行”阶段是整个生命周期中最重要的阶段，包括大量为了检索数据对存储引擎的调用，以及调用后的数据处理(排序、分组等)。</p>
+<hr>
+<h3 id="4-1-优化数据访问"><a href="#4-1-优化数据访问" class="headerlink" title="4.1.优化数据访问"></a>4.1.优化数据访问</h3><p><strong>查询的数据是否过多：</strong></p>
+<ul>
+<li>查询了不需要的记录；</li>
+<li>多表连接时返回全部列；</li>
+<li>总数取出全部列；</li>
+<li>重复查询相同的数据；</li>
+</ul>
+<p><strong>MySQL 是否在扫描额外的记录：</strong></p>
+<ul>
+<li>扫描的行数和返回行数之间的比率；</li>
+<li>扫描的行数和访问类型：全表扫描、索引扫描、范围扫描、唯一索引查询，常数引用等；</li>
+</ul>
+<hr>
+<h3 id="4-2-重构查询的方式"><a href="#4-2-重构查询的方式" class="headerlink" title="4.2.重构查询的方式"></a>4.2.重构查询的方式</h3><ul>
+<li>将复杂查询重构为多个简单查询；</li>
+<li>切分查询，每次只返回部分查询结果；</li>
+<li>分解连接查询；</li>
+</ul>
+<hr>
+<h3 id="4-3-查询状态"><a href="#4-3-查询状态" class="headerlink" title="4.3.查询状态"></a>4.3.查询状态</h3><ul>
+<li>Sleep：线程正在等待客户端发送新的请求；</li>
+<li>Query：线程正在执行查询或者正在将结果发送给客户端；</li>
+<li>Locked：在 MySQL 服务器层，线程正在等待表锁；（存储引擎级别实现的锁，例如 InnoDB 的行锁，不会体现在线程状态中）</li>
+<li>Analying and statistics：线程正在检查存储引擎的统计信息，并优化查询；</li>
+<li>Copying to tmp table：线程正在执行查询，将结果复制到临时表中；</li>
+<li>Sorting result：线程正在对结果集进行排序；</li>
+</ul>
+<hr>
+<h3 id="4-4-排序优化"><a href="#4-4-排序优化" class="headerlink" title="4.4.排序优化"></a>4.4.排序优化</h3><p>在不能使用索引生成排序结果的时候，MySQL 需要自己继续排序，数据量小则在内存中进行，数据量大则需要使用磁盘，在 MySQL 中统称文件排序。</p>
+<p><strong>排序的具体实现：</strong></p>
+<p>如果需要排序的数据量小于“排序缓存区”，MySQL 使用内存进行快速排序操作，如果内存不够排序，那么 MySQL 会先将数据分块，对每个独立的块使用快速排序，并将各个块的排序结果存放在磁盘上，然后将各个排好序的块进行合并，最后返回排序结果。</p>
+<p>在 MySQL 的 EXPLAIN 结果的 Extra 字段可以看到“Using temporary; Using filesort”字样，说明使用了临时表、文件进行排序。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>高性能MySQL的实现策略</div>
+      <div>https://ahxinin.com/高性能MySQL的实现策略.html</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>阿昕</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2023年3月20日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/Elasticsearch%20Java%20API%20Client%208.x%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F.html" title="Elasticsearch Java API Client 8.x使用方式">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">Elasticsearch Java API Client 8.x使用方式</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

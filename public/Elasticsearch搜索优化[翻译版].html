@@ -1,0 +1,612 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="阿昕">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="在上一篇文章中翻译了索引写入，接下来看看索引的查询有哪些优化手段。 原文链接：https:&#x2F;&#x2F;www.elastic.co&#x2F;guide&#x2F;en&#x2F;elasticsearch&#x2F;reference&#x2F;current&#x2F;tune-for-search-speed.html 1.增加文件系统缓存Elasticsearch严重依赖文件系统缓存来加快查询速度。一般来说，至少需要保留一半的可用内存给文件系统，以便Ela">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Elasticsearch写入速度优化[翻译版]">
+<meta property="og:url" content="https://ahxinin.com/Elasticsearch%E6%90%9C%E7%B4%A2%E4%BC%98%E5%8C%96[%E7%BF%BB%E8%AF%91%E7%89%88].html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="在上一篇文章中翻译了索引写入，接下来看看索引的查询有哪些优化手段。 原文链接：https:&#x2F;&#x2F;www.elastic.co&#x2F;guide&#x2F;en&#x2F;elasticsearch&#x2F;reference&#x2F;current&#x2F;tune-for-search-speed.html 1.增加文件系统缓存Elasticsearch严重依赖文件系统缓存来加快查询速度。一般来说，至少需要保留一半的可用内存给文件系统，以便Ela">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2023-05-15T16:00:00.000Z">
+<meta property="article:modified_time" content="2024-01-30T10:02:03.353Z">
+<meta property="article:author" content="阿昕">
+<meta name="twitter:card" content="summary_large_image">
+  
+  
+  
+  <title>Elasticsearch写入速度优化[翻译版] - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"ahxinin.com","root":"/","version":"1.9.7","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.1.1"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>阿昕的博客</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Elasticsearch写入速度优化[翻译版]"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2023-05-16 00:00" pubdate>
+          2023年5月16日 凌晨
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          3.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          28 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Elasticsearch写入速度优化[翻译版]</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <p>在上一篇文章中翻译了索引写入，接下来看看索引的查询有哪些优化手段。</p>
+<p>原文链接：<a target="_blank" rel="noopener" href="https://www.elastic.co/guide/en/elasticsearch/reference/current/tune-for-search-speed.html">https://www.elastic.co/guide/en/elasticsearch/reference/current/tune-for-search-speed.html</a></p>
+<h3 id="1-增加文件系统缓存"><a href="#1-增加文件系统缓存" class="headerlink" title="1.增加文件系统缓存"></a>1.增加文件系统缓存</h3><p>Elasticsearch严重依赖文件系统缓存来加快查询速度。一般来说，至少需要保留一半的可用内存给文件系统，以便Elasticsearch在物理内存中保留索引热点数据。</p>
+<h3 id="2-使用更快的硬件"><a href="#2-使用更快的硬件" class="headerlink" title="2.使用更快的硬件"></a>2.使用更快的硬件</h3><p>如果搜索遇到了I&#x2F;O瓶颈，考虑增加文件系统缓存或者使用更快的存储设备。每次查询涉及随机读和顺序读的混合操作，跨越多个文件，而且每个分片上可能有多个搜索的并发请求，因SSD磁盘比普通硬盘性能更佳。</p>
+<p>本地磁盘比网络云盘更加高效，因为配置更加简单而且可以避免频繁的网络通信。经过优化配置，网络云盘有时也能达到所期望的性能。通过真实负载下的基准测试，来确定优化参数是否生效。如果不能达到你所期望的效果，可以联系你的存储供应商来解决问题。</p>
+<p>如果你的搜索遇到的是CPU瓶颈，可以考虑增加速度更快的CPU。</p>
+<h3 id="3-文档结构化"><a href="#3-文档结构化" class="headerlink" title="3.文档结构化"></a>3.文档结构化</h3><p>文档结构越简单搜索成本越低。</p>
+<p>在实际使用中，应当避免文档关联。嵌套结构<code>nested</code>可能导致查询速度慢上好几倍，父子文档<code>parent-child</code>关联的查询速度可能要慢几百倍。如果可以使用非规范化文档来规避关联关系，查询速度可以得到显著的提升。</p>
+<h3 id="4-只搜索必要的字段"><a href="#4-只搜索必要的字段" class="headerlink" title="4.只搜索必要的字段"></a>4.只搜索必要的字段</h3><p>当<code>query_string</code> 或者 <code>multi_match</code> 包含的字段越多时，搜索速度就会越慢。改善多字段查询速度的通用技巧，是在写入文档时将多个字段的内容复制到一个字段中，在搜索搜索时只需要查询这个字段。使用文档结构的<code>copy-to</code> 指令就可以自动完成，无需修改源文档。下面的例子关于如何改善电影索引的搜索性能，把需要查询的电影名称、情节都放到<code>name_and_plot</code>字段中。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><code class="hljs SQL">PUT movies<br>&#123;<br>  &quot;mappings&quot;: &#123;<br>    &quot;properties&quot;: &#123;<br>      &quot;name_and_plot&quot;: &#123;<br>        &quot;type&quot;: &quot;text&quot;<br>      &#125;,<br>      &quot;name&quot;: &#123;<br>        &quot;type&quot;: &quot;text&quot;,<br>        &quot;copy_to&quot;: &quot;name_and_plot&quot;<br>      &#125;,<br>      &quot;plot&quot;: &#123;<br>        &quot;type&quot;: &quot;text&quot;,<br>        &quot;copy_to&quot;: &quot;name_and_plot&quot;<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+<h3 id="5-预索引数据"><a href="#5-预索引数据" class="headerlink" title="5.预索引数据"></a>5.预索引数据</h3><p>在搜索和数据存储优化方面需要取得一个平衡。比如说，如果你所有的文档都有一个 <code>price</code>字段，大多数查询使用了固定范围内的<code>range</code> 聚合查询，你可以将 <code>terms</code>聚合查询的结果存储到新的索引中，来加快查询效率。</p>
+<p>例如，文档如下所示：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><code class="hljs SQL">PUT index<span class="hljs-operator">/</span>_doc<span class="hljs-operator">/</span><span class="hljs-number">1</span><br>&#123;<br>  &quot;designation&quot;: &quot;spoon&quot;,<br>  &quot;price&quot;: <span class="hljs-number">13</span><br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>搜索请求：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs SQL"><span class="hljs-keyword">GET</span> index<span class="hljs-operator">/</span>_search<br>&#123;<br>  &quot;aggs&quot;: &#123;<br>    &quot;price_ranges&quot;: &#123;<br>      &quot;range&quot;: &#123;<br>        &quot;field&quot;: &quot;price&quot;,<br>        &quot;ranges&quot;: [<br>          &#123; &quot;to&quot;: <span class="hljs-number">10</span> &#125;,<br>          &#123; &quot;from&quot;: <span class="hljs-number">10</span>, &quot;to&quot;: <span class="hljs-number">100</span> &#125;,<br>          &#123; &quot;from&quot;: <span class="hljs-number">100</span> &#125;<br>        ]<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>文档在写入时可以填充到<code>price_range</code>字段中，使用<code>keyword</code>字段类型：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs SQL">PUT index<br>&#123;<br>  &quot;mappings&quot;: &#123;<br>    &quot;properties&quot;: &#123;<br>      &quot;price_range&quot;: &#123;<br>        &quot;type&quot;: &quot;keyword&quot;<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br><br>PUT index<span class="hljs-operator">/</span>_doc<span class="hljs-operator">/</span><span class="hljs-number">1</span><br>&#123;<br>  &quot;designation&quot;: &quot;spoon&quot;,<br>  &quot;price&quot;: <span class="hljs-number">13</span>,<br>  &quot;price_range&quot;: &quot;10-100&quot;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>然后在搜索时，可以对新的字段进行聚合来代替对<code>price</code>字段进行聚合：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><code class="hljs SQL"><span class="hljs-keyword">GET</span> index<span class="hljs-operator">/</span>_search<br>&#123;<br>  &quot;aggs&quot;: &#123;<br>    &quot;price_ranges&quot;: &#123;<br>      &quot;terms&quot;: &#123;<br>        &quot;field&quot;: &quot;price_range&quot;<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h3 id="6-唯一标记使用-keword字段类型"><a href="#6-唯一标记使用-keword字段类型" class="headerlink" title="6.唯一标记使用 keword字段类型"></a>6.唯一标记使用 keword字段类型</h3><p>不是所有的数字都应该使用 <code>numeric</code> 字段类型。Elasticsearch对数字类型进行了优化，例如<code>integer</code> 或者 <code>long</code>，在<code>range</code>查询场景下。然而，<code>keyword</code>类型在<code>term</code> 和 <code>term-level</code>查询中表现更好。</p>
+<p>唯一标记，例如ISBN或者产品id，很少使用范围查询，却经常使用<code>term-level</code>查询。</p>
+<p>以下情况可以考虑将数字类型的唯一标记存储为keyword类型：</p>
+<ul>
+<li>唯一标记不会用于范围查询；</li>
+<li>更看重搜索性能。keyword字段类型上的term查询比数字类型要快许多；</li>
+</ul>
+<p>如果你不确定使用哪种方式，可以使用<code>multi-field</code>来同存储keywrod和数字类型。</p>
+<h3 id="7-避免使用脚本"><a href="#7-避免使用脚本" class="headerlink" title="7.避免使用脚本"></a>7.避免使用脚本</h3><p>如果可能，避免使用基于脚本的排序、聚合，以及用脚本计算评分。</p>
+<h3 id="8-搜索近似时间"><a href="#8-搜索近似时间" class="headerlink" title="8.搜索近似时间"></a>8.搜索近似时间</h3><p>使用<code>now</code>条件来搜索时间字段通常没有缓存，因为匹配的条件一直在变化。然而使用近似时间在条件查询中经常上适用的，而且可以更好的利用查询缓存。</p>
+<p>例如下面的查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><code class="hljs SQL">PUT index<span class="hljs-operator">/</span>_doc<span class="hljs-operator">/</span><span class="hljs-number">1</span><br>&#123;<br>  &quot;my_date&quot;: &quot;2016-05-11T16:30:55.328Z&quot;<br>&#125;<br><br><span class="hljs-keyword">GET</span> index<span class="hljs-operator">/</span>_search<br>&#123;<br>  &quot;query&quot;: &#123;<br>    &quot;constant_score&quot;: &#123;<br>      &quot;filter&quot;: &#123;<br>        &quot;range&quot;: &#123;<br>          &quot;my_date&quot;: &#123;<br>            &quot;gte&quot;: &quot;now-1h&quot;,<br>            &quot;lte&quot;: &quot;now&quot;<br>          &#125;<br>        &#125;<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>可以进行如下替换：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><code class="hljs SQL"><span class="hljs-keyword">GET</span> index<span class="hljs-operator">/</span>_search<br>&#123;<br>  &quot;query&quot;: &#123;<br>    &quot;constant_score&quot;: &#123;<br>      &quot;filter&quot;: &#123;<br>        &quot;range&quot;: &#123;<br>          &quot;my_date&quot;: &#123;<br>            &quot;gte&quot;: &quot;now-1h/m&quot;,<br>            &quot;lte&quot;: &quot;now/m&quot;<br>          &#125;<br>        &#125;<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>在这个例子中我们使用了分钟近似值，如果当前时间是<code>16:31:29</code> ，<code>my_date</code>字段的范围查询将返回所有从<code>15:31:00</code>到<code>16:31:59</code>时间段内的数据。如果同一时间好几个用户的查询条件包含这个范围，查询缓存能够加快查询速度。近似查询的范围越长，缓存的效果越明显，但是需要注意过度的近似值可能会破坏用户体验。</p>
+<h3 id="9-强制合并只读索引"><a href="#9-强制合并只读索引" class="headerlink" title="9.强制合并只读索引"></a>9.强制合并只读索引</h3><p>强制合并为一个段对只读索引来说是有益的。在时间线索引中比较常见的场景：只有当前时间的索引会新增数据，历史索引是只读的。分片被强制合并为一个段，可以让查询更加简单和有效。</p>
+<h3 id="10-预热全局序号"><a href="#10-预热全局序号" class="headerlink" title="10.预热全局序号"></a>10.预热全局序号</h3><p>全局序号是用来优化聚合的一种数据结构。他们作为字段缓存的一部分会在<code>JVM</code>中延迟计算和存储。作为分桶查询中被频繁使用的字段，你可以让<code>Elasticsearch</code>在请求到达前实例化和缓存。这个操作应该谨慎使用，因为他会占用更多内存使得<code>refresh</code>变长。这个选项可以在已经创建的索引上动态设置，通过修改<code>eager global ordinals</code> 参数：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><code class="hljs SQL">PUT index<br>&#123;<br>  &quot;mappings&quot;: &#123;<br>    &quot;properties&quot;: &#123;<br>      &quot;foo&quot;: &#123;<br>        &quot;type&quot;: &quot;keyword&quot;,<br>        &quot;eager_global_ordinals&quot;: <span class="hljs-literal">true</span><br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<h3 id="11-预热文件系统缓存"><a href="#11-预热文件系统缓存" class="headerlink" title="11.预热文件系统缓存"></a>11.预热文件系统缓存</h3><p>如果运行<code>Elasticsearch</code>的机器重启了，文件系统缓存会被清空，因此操作系统需要花费一些时间来加载热点索引缓存数据到内存，以便加快查询速度。你可以明确的告诉操作系统哪些文件需要提前加载到缓存中，通过<code>index.store.preload</code> 参数来进行指定。</p>
+<h3 id="12-使用索引排序来加快连接速度"><a href="#12-使用索引排序来加快连接速度" class="headerlink" title="12.使用索引排序来加快连接速度"></a>12.使用索引排序来加快连接速度</h3><p>索引排序在加快连接速度方面很有效，代价是文档写入会变慢。</p>
+<h3 id="13-使用preference来优化缓存使用"><a href="#13-使用preference来优化缓存使用" class="headerlink" title="13.使用preference来优化缓存使用"></a>13.使用preference来优化缓存使用</h3><p>有多种缓存可以用来加快查询速度，诸如文件系统缓存、请求缓存、查询缓存。这些缓存大多是在节点层面的，意味着如果你连续发起2次相同的请求，有一个或者多个副本而且所有了负载策略，根据默认的路由算法，2次请求会分配到不同的分片节点，节点层面的缓存无法有效利用。</p>
+<p>由于搜索程序的用户会一个接着一个的发起类似的查询请求，比如说为了分析索引索引的子集，使用偏好值来标记当前用户或者请求能够帮助优化缓存的使用。</p>
+<h3 id="14-副本或许可以提升吞吐量"><a href="#14-副本或许可以提升吞吐量" class="headerlink" title="14.副本或许可以提升吞吐量"></a>14.副本或许可以提升吞吐量</h3><p>除了弹性扩展，副本还能提升吞吐量。例如你有一个单一分片索引和三个节点，你需要将副本数量设置为2，这样总共3份副本让每个节点都能充分利用。</p>
+<p>现在假设你有2个分片索引和2个节点。第一种情况，副本数量设置为0，意味着每个节点有一个分片。第二种情况副本数量设置为1，意味着每个节点有2个分片。哪种情况能够有更好的查询性能呢？通常情况下，节点的分片数量越少的方案更优。因为能够给每个分片更多的文件系统缓存，而文件系统缓存可能是<code>Elasticsearch</code>最有效的优化策略。与此同时，需要注意物副本的方案在单节点失败情况下的风险，需要权衡吞吐量和可用性。</p>
+<p>因此分片数量设置为多少比较合适？如果你的集群有<code>num_nodes</code>个节点，总共有<code>num_primaries</code>个主分片，你期望同时可以应对最多<code>max_failures</code>个节点失败的状况，正确的副本数量结算方式为：<code>max(max_failures, ceil(num_nodes / num_primaries) - 1)</code></p>
+<h3 id="15-使用Search-Profiler优化查询"><a href="#15-使用Search-Profiler优化查询" class="headerlink" title="15.使用Search Profiler优化查询"></a>15.使用Search Profiler优化查询</h3><p><code>Profile API</code>提供了查询和聚合在每一步处理耗时的详细信息。</p>
+<p>在<code>Kibana</code>上使用<code> Search Profiler</code>可以清楚直观的看到分析结果，以及如何优化查询和减轻负载压力。</p>
+<p>因为<code>Profile API</code>在查询上增加了大量开销，返回的结果适用于了解各个查询阶段的相对耗时。不代表实际的处理时间。</p>
+<h3 id="16-使用index-phrases加快短语查询"><a href="#16-使用index-phrases加快短语查询" class="headerlink" title="16.使用index_phrases加快短语查询"></a>16.使用index_phrases加快短语查询</h3><p><code>text</code>字段有一个<code>index_phrases</code>选项来索引2-shingles，能够被短语查询自动应用，在没有<code>slop</code>的情况下。如果你的案例中有大量的短语查询，可以显著的加快查询速度。</p>
+<h3 id="17-使用index-prefixes来加快前缀查询"><a href="#17-使用index-prefixes来加快前缀查询" class="headerlink" title="17.使用index_prefixes来加快前缀查询"></a>17.使用index_prefixes来加快前缀查询</h3><p>text字段有一个index_prefixes选项来索引前缀，在前缀查询条件中能够被自动的应用。如果你的案例中有大量的前缀查询，可以显著的加快查询速度。</p>
+<h3 id="18-使用constant-keyword来加快过滤速度"><a href="#18-使用constant-keyword来加快过滤速度" class="headerlink" title="18.使用constant_keyword来加快过滤速度"></a>18.使用constant_keyword来加快过滤速度</h3><p>有一个通用规则，过滤查询的耗时基本上是匹配文档数量的一个函数。假设你有一个包含骑行的索引。有大量的自行车数据，许多查询上基于过滤条件：<code>cycle_type: bicycle</code>。这个常见的过滤会很耗时，因为匹配到了大量的文档。有一个简单的方法来避免运行此类查询，把自行车移动他自己的索引中，查询这个索引来代替过滤查询。</p>
+<p>不幸的是这样会使客户端的逻辑变得复杂，而这正是<code>constant_keyword</code>发挥作用的地方。通过在bicycles索引上将<code>cycle_type</code>字段类型设置为<code>constant_keyword</code>，值设置为<code>bicycle</code>，客户端依然可以运行和之前单片索引上一样的查询语句，Elasticsearch会在bicycles索引上忽略条件为<code>cycle_type</code>并且值为<code>bicycle</code>的过滤条件，返回正确的结果。</p>
+<p>索引结构如下所示：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><code class="hljs SQL">PUT bicycles<br>&#123;<br>  &quot;mappings&quot;: &#123;<br>    &quot;properties&quot;: &#123;<br>      &quot;cycle_type&quot;: &#123;<br>        &quot;type&quot;: &quot;constant_keyword&quot;,<br>        &quot;value&quot;: &quot;bicycle&quot;<br>      &#125;,<br>      &quot;name&quot;: &#123;<br>        &quot;type&quot;: &quot;text&quot;<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br><br>PUT other_cycles<br>&#123;<br>  &quot;mappings&quot;: &#123;<br>    &quot;properties&quot;: &#123;<br>      &quot;cycle_type&quot;: &#123;<br>        &quot;type&quot;: &quot;keyword&quot;<br>      &#125;,<br>      &quot;name&quot;: &#123;<br>        &quot;type&quot;: &quot;text&quot;<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>我们将索引一分为二，一个仅包含自行车，一辆一个包含其他车辆：独轮车、三轮车等等。在查询时，我们需要查询所有的索引，但是不需要修改查询语句。</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs SQL"><span class="hljs-keyword">GET</span> bicycles,other_cycles<span class="hljs-operator">/</span>_search<br>&#123;<br>  &quot;query&quot;: &#123;<br>    &quot;bool&quot;: &#123;<br>      &quot;must&quot;: &#123;<br>        &quot;match&quot;: &#123;<br>          &quot;description&quot;: &quot;dutch&quot;<br>        &#125;<br>      &#125;,<br>      &quot;filter&quot;: &#123;<br>        &quot;term&quot;: &#123;<br>          &quot;cycle_type&quot;: &quot;bicycle&quot;<br>        &#125;<br>      &#125;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>在<code>bicycles</code>索引中，Elasticsearch会忽略<code>cycle_type</code>过滤条件将查询请求重写如下：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><code class="hljs SQL"><span class="hljs-keyword">GET</span> bicycles,other_cycles<span class="hljs-operator">/</span>_search<br>&#123;<br>  &quot;query&quot;: &#123;<br>    &quot;match&quot;: &#123;<br>      &quot;description&quot;: &quot;dutch&quot;<br>    &#125;<br>  &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+
+<p>在<code>other_cycles</code>索引，Elasticsearch会快速的发现在<code>cycle_type</code>中不包含<code>bicycle</code>，返回无匹配结果。</p>
+<p>这是一个非常有效的手段，将通用的查询字符内容放在专属索引里面。这个方法也适用于多字段，例如你需要追踪每个骑行工具的颜色，你的<code>bicycles</code>索引中大部分都是黑色的自行车，你可以将他分为<code>bicycles-black</code>和<code>bicycles-other-colors</code>索引。</p>
+<p><code>constant_keyword</code>不属于严格意义上的索引优化：更像是将客户端的逻辑查询路由到指定的索引上。但是<code>constant_keyword</code>使其透明化，将查询和索引结果解耦来优化性能。</p>
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Elasticsearch写入速度优化[翻译版]</div>
+      <div>https://ahxinin.com/Elasticsearch搜索优化[翻译版].html</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>阿昕</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2023年5月16日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/Redis%E5%AE%9E%E6%88%98%E4%B9%8B%E6%90%9E%E6%87%82Redisson%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81%E6%9C%BA%E5%88%B6.html" title="Redis实战之搞懂Redisson分布式锁机制">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">Redis实战之搞懂Redisson分布式锁机制</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/Elasticsearch%E5%86%99%E5%85%A5%E9%80%9F%E5%BA%A6%E4%BC%98%E5%8C%96%5B%E7%BF%BB%E8%AF%91%E7%89%88%5D.html" title="Elasticsearch写入速度优化[翻译版]">
+                        <span class="hidden-mobile">Elasticsearch写入速度优化[翻译版]</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>

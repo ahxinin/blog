@@ -1,0 +1,566 @@
+
+
+<!DOCTYPE html>
+<html lang="zh-CN" data-default-color-scheme=auto>
+
+
+
+<head>
+  <meta charset="UTF-8">
+  <link rel="apple-touch-icon" sizes="76x76" href="/img/fluid.png">
+  <link rel="icon" href="/img/fluid.png">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, shrink-to-fit=no">
+  <meta http-equiv="x-ua-compatible" content="ie=edge">
+  
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+  
+  <meta name="theme-color" content="#2f4154">
+  <meta name="author" content="阿昕">
+  <meta name="keywords" content="">
+  
+    <meta name="description" content="客户端的变化众所周知，Elasticsearch是基于Lucene的，提供了更高层次的封装、分布式方面的扩展，以及REST API来方便使用，我们先来看看java client的变化： 从图中可以看成，在8.x版本中，Elasticsearch提供了全新的Java API Client，用来代替之前广为使用的High Level Client，根据官网说法两者并无关联；而更具有灵活性和偏向底层的L">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Elasticsearch Java API Client 8.x使用方式">
+<meta property="og:url" content="https://ahxinin.com/Elasticsearch%20Java%20API%20Client%208.x%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F.html">
+<meta property="og:site_name" content="Hexo">
+<meta property="og:description" content="客户端的变化众所周知，Elasticsearch是基于Lucene的，提供了更高层次的封装、分布式方面的扩展，以及REST API来方便使用，我们先来看看java client的变化： 从图中可以看成，在8.x版本中，Elasticsearch提供了全新的Java API Client，用来代替之前广为使用的High Level Client，根据官网说法两者并无关联；而更具有灵活性和偏向底层的L">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://ahxinin.com/img_convert/2.png">
+<meta property="og:image" content="https://ahxinin.com/img_convert/3.png">
+<meta property="article:published_time" content="2023-03-30T16:00:00.000Z">
+<meta property="article:modified_time" content="2024-01-30T10:02:10.183Z">
+<meta property="article:author" content="阿昕">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://ahxinin.com/img_convert/2.png">
+  
+  
+  
+  <title>Elasticsearch Java API Client 8.x使用方式 - Hexo</title>
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/twitter-bootstrap/4.6.1/css/bootstrap.min.css" />
+
+
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/github-markdown-css/4.0.0/github-markdown.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/hint.css/2.7.0/hint.min.css" />
+
+  <link  rel="stylesheet" href="https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.css" />
+
+
+
+<!-- 主题依赖的图标库，不要自行修改 -->
+<!-- Do not modify the link that theme dependent icons -->
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1749284_hj8rtnfg7um.css">
+
+
+
+<link rel="stylesheet" href="//at.alicdn.com/t/font_1736178_lbnruvf0jn.css">
+
+
+<link  rel="stylesheet" href="/css/main.css" />
+
+
+  <link id="highlight-css" rel="stylesheet" href="/css/highlight.css" />
+  
+    <link id="highlight-css-dark" rel="stylesheet" href="/css/highlight-dark.css" />
+  
+
+
+
+
+  <script id="fluid-configs">
+    var Fluid = window.Fluid || {};
+    Fluid.ctx = Object.assign({}, Fluid.ctx)
+    var CONFIG = {"hostname":"ahxinin.com","root":"/","version":"1.9.7","typing":{"enable":true,"typeSpeed":70,"cursorChar":"_","loop":false,"scope":[]},"anchorjs":{"enable":true,"element":"h1,h2,h3,h4,h5,h6","placement":"left","visible":"hover","icon":""},"progressbar":{"enable":true,"height_px":3,"color":"#29d","options":{"showSpinner":false,"trickleSpeed":100}},"code_language":{"enable":true,"default":"TEXT"},"copy_btn":true,"image_caption":{"enable":true},"image_zoom":{"enable":true,"img_url_replace":["",""]},"toc":{"enable":true,"placement":"right","headingSelector":"h1,h2,h3,h4,h5,h6","collapseDepth":0},"lazyload":{"enable":true,"loading_img":"/img/loading.gif","onlypost":false,"offset_factor":2},"web_analytics":{"enable":false,"follow_dnt":true,"baidu":null,"google":{"measurement_id":null},"tencent":{"sid":null,"cid":null},"woyaola":null,"cnzz":null,"leancloud":{"app_id":null,"app_key":null,"server_url":null,"path":"window.location.pathname","ignore_local":false}},"search_path":"/local-search.xml","include_content_in_search":true};
+
+    if (CONFIG.web_analytics.follow_dnt) {
+      var dntVal = navigator.doNotTrack || window.doNotTrack || navigator.msDoNotTrack;
+      Fluid.ctx.dnt = dntVal && (dntVal.startsWith('1') || dntVal.startsWith('yes') || dntVal.startsWith('on'));
+    }
+  </script>
+  <script  src="/js/utils.js" ></script>
+  <script  src="/js/color-schema.js" ></script>
+  
+
+
+  
+<meta name="generator" content="Hexo 7.1.1"></head>
+
+
+<body>
+  
+
+  <header>
+    
+
+<div class="header-inner" style="height: 70vh;">
+  <nav id="navbar" class="navbar fixed-top  navbar-expand-lg navbar-dark scrolling-navbar">
+  <div class="container">
+    <a class="navbar-brand" href="/">
+      <strong>阿昕的博客</strong>
+    </a>
+
+    <button id="navbar-toggler-btn" class="navbar-toggler" type="button" data-toggle="collapse"
+            data-target="#navbarSupportedContent"
+            aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <div class="animated-icon"><span></span><span></span><span></span></div>
+    </button>
+
+    <!-- Collapsible content -->
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav ml-auto text-center">
+        
+          
+          
+          
+          
+            <li class="nav-item">
+              <a class="nav-link" href="/" target="_self">
+                <i class="iconfont icon-home-fill"></i>
+                <span>首页</span>
+              </a>
+            </li>
+          
+        
+        
+        
+          <li class="nav-item" id="color-toggle-btn">
+            <a class="nav-link" target="_self" href="javascript:;" aria-label="Color Toggle">
+              <i class="iconfont icon-dark" id="color-toggle-icon"></i>
+            </a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+</nav>
+
+  
+
+<div id="banner" class="banner" parallax=true
+     style="background: url('/img/default.png') no-repeat center center; background-size: cover;">
+  <div class="full-bg-img">
+    <div class="mask flex-center" style="background-color: rgba(0, 0, 0, 0.3)">
+      <div class="banner-text text-center fade-in-up">
+        <div class="h2">
+          
+            <span id="subtitle" data-typed-text="Elasticsearch Java API Client 8.x使用方式"></span>
+          
+        </div>
+
+        
+          
+  <div class="mt-3">
+    
+    
+      <span class="post-meta">
+        <i class="iconfont icon-date-fill" aria-hidden="true"></i>
+        <time datetime="2023-03-31 00:00" pubdate>
+          2023年3月31日 凌晨
+        </time>
+      </span>
+    
+  </div>
+
+  <div class="mt-1">
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-chart"></i>
+        
+          1.3k 字
+        
+      </span>
+    
+
+    
+      <span class="post-meta mr-2">
+        <i class="iconfont icon-clock-fill"></i>
+        
+        
+        
+          11 分钟
+        
+      </span>
+    
+
+    
+    
+  </div>
+
+
+        
+      </div>
+
+      
+    </div>
+  </div>
+</div>
+
+</div>
+
+  </header>
+
+  <main>
+    
+      
+
+<div class="container-fluid nopadding-x">
+  <div class="row nomargin-x">
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+
+    </div>
+
+    <div class="col-lg-8 nopadding-x-md">
+      <div class="container nopadding-x-md" id="board-ctn">
+        <div id="board">
+          <article class="post-content mx-auto">
+            <h1 id="seo-header">Elasticsearch Java API Client 8.x使用方式</h1>
+            
+            
+              <div class="markdown-body">
+                
+                <h3 id="客户端的变化"><a href="#客户端的变化" class="headerlink" title="客户端的变化"></a>客户端的变化</h3><p>众所周知，Elasticsearch是基于Lucene的，提供了更高层次的封装、分布式方面的扩展，以及REST API来方便使用，我们先来看看java client的变化：</p>
+<p><img src="/img_convert/2.png" srcset="/img/loading.gif" lazyload><br>从图中可以看成，在8.x版本中，Elasticsearch提供了全新的Java API Client，用来代替之前广为使用的High Level Client，根据官网说法两者并无关联；而更具有灵活性和偏向底层的Low Level Client依旧在迭代，提供给用户更多的选择。</p>
+<h3 id="快速开始"><a href="#快速开始" class="headerlink" title="快速开始"></a>快速开始</h3><p>话不多说，直接开始，Java API Client依赖于JSON来进行数据格式化，支持Jackson或者JSON-B库，引入相应maven依赖。</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><code class="hljs xml"><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>co.elastic.clients<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>	<span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>elasticsearch-java<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>	<span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>8.6.2<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br><br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>com.fasterxml.jackson.core<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>jackson-databind<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.12.3<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br><br><span class="hljs-tag">&lt;<span class="hljs-name">dependency</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">groupId</span>&gt;</span>jakarta.json<span class="hljs-tag">&lt;/<span class="hljs-name">groupId</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">artifactId</span>&gt;</span>jakarta.json-api<span class="hljs-tag">&lt;/<span class="hljs-name">artifactId</span>&gt;</span><br>  <span class="hljs-tag">&lt;<span class="hljs-name">version</span>&gt;</span>2.0.1<span class="hljs-tag">&lt;/<span class="hljs-name">version</span>&gt;</span><br><span class="hljs-tag">&lt;/<span class="hljs-name">dependency</span>&gt;</span><br></code></pre></td></tr></table></figure>
+
+<p>下一步连接Elasticsearch服务端：</p>
+<figure class="highlight haxe"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><code class="hljs haxe"><span class="hljs-meta">@Component</span><br><span class="hljs-keyword">public</span> <span class="hljs-title class_"><span class="hljs-keyword">class</span> <span class="hljs-title">ElasticsearchConfig</span> </span>&#123;<br><br>    <span class="hljs-meta">@Bean</span><br>    <span class="hljs-keyword">public</span> ElasticsearchClient elasticsearchClient()&#123;<br>        BasicCredentialsProvider credentialsProvider = <span class="hljs-keyword">new</span> <span class="hljs-type">BasicCredentialsProvider</span>();<br>        credentialsProvider.setCredentials(AuthScope.ANY, <span class="hljs-keyword">new</span> <span class="hljs-type">UsernamePasswordCredentials</span>(userName, password));<br><br>        RestClient httpClient = RestClient.builder(<span class="hljs-keyword">new</span> <span class="hljs-type">HttpHost</span>(hostName, port))<br>            .setHttpClientConfigCallback(hc -&gt; hc.setDefaultCredentialsProvider(credentialsProvider))<br>            .build();<br><br>        ElasticsearchTransport transport = <span class="hljs-keyword">new</span> <span class="hljs-type">RestClientTransport</span>(httpClient, <span class="hljs-keyword">new</span> <span class="hljs-type">JacksonJsonpMapper</span>());<br>        <span class="hljs-keyword">return</span> <span class="hljs-keyword">new</span> <span class="hljs-type">ElasticsearchClient</span>(transport);<br>    &#125;<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>在这里创建的是一个同步的客户端，Java API Client还支持创建异步的客户端：ElasticsearchAsyncClient，返回的是一个标准的 CompletableFuture，按需选择。另外我们还可以看到，创建对象时使用了构造器模式，以及lambda表达式，这两种方式使得代码更加简洁和高效。</p>
+<h3 id="JakartaEE"><a href="#JakartaEE" class="headerlink" title="JakartaEE"></a>JakartaEE</h3><p>补充一点额外内容，JSON-B库的全称是Jakarta JSON Binding，是用于Java对象与JSON消息相互转换的标准绑定层，来源于Jakarta EE。<br>而Jakarta EE并不是什么新鲜技术，它的前身是Java EE。之所以改名称，是因为2017年Oracle宣布开源Java EE并将项目移交给Eclipse基金会时，提出来的要求，导致改名事件。现阶段一般都在使用类似于SpringBoot的框架，Java EE的存在感就更弱了，这里就不再扩展了。</p>
+<h3 id="写入文档"><a href="#写入文档" class="headerlink" title="写入文档"></a>写入文档</h3><p>Java API Client支持写入bean对象，或者直接写入JSON格式数据，其中bean对象会被自动映射为JSON。</p>
+<figure class="highlight pgsql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><code class="hljs pgsql"><span class="hljs-built_in">public</span> <span class="hljs-type">void</span> <span class="hljs-keyword">index</span>() throws IOException &#123;<br>    <span class="hljs-keyword">Order</span> <span class="hljs-keyword">order</span> = <span class="hljs-built_in">new</span> <span class="hljs-keyword">Order</span>(<span class="hljs-number">1</span>L, &quot;test product&quot;, <span class="hljs-number">233</span>L);<br><br>    IndexRequest&lt;<span class="hljs-keyword">Order</span>&gt; request = IndexRequest.<span class="hljs-keyword">of</span>(i -&gt; i<br>        .<span class="hljs-keyword">index</span>(&quot;order-index&quot;)<br>        .id(String.valueOf(<span class="hljs-keyword">order</span>.getId()))<br>        .document(<span class="hljs-keyword">order</span>)<br>        .version(<span class="hljs-number">1</span>L)<br>    );<br><br>    IndexResponse indexResponse = elasticsearchClient.<span class="hljs-keyword">index</span>(request);<br>    <span class="hljs-keyword">log</span>.<span class="hljs-keyword">info</span>(&quot;indexResponse:&#123;&#125;&quot;, indexResponse.toString());<br>&#125;<br></code></pre></td></tr></table></figure>
+<p>构建一个order对象后，使用其ID作为主键，写入到名为”order-index”的索引之中，同时通过version参数指定了数据版本号，来进行并发控制。</p>
+<h3 id="搜索文档"><a href="#搜索文档" class="headerlink" title="搜索文档"></a>搜索文档</h3><p>以产品名称、价格作为搜索条件，来看看具体的实现：</p>
+<figure class="highlight pgsql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br></pre></td><td class="code"><pre><code class="hljs pgsql"><span class="hljs-built_in">public</span> <span class="hljs-type">void</span> <span class="hljs-keyword">search</span>() throws IOException &#123;<br>    String keyword = &quot;apple&quot;;<br>    Long maxPrice = <span class="hljs-number">100</span>L;<br><br>    Query byProduct = MatchQuery.<span class="hljs-keyword">of</span>(m -&gt; m<br>        .field(&quot;product&quot;)<br>        .query(keyword)<br>    )._toQuery();<br><br>    Query byMaxPrice = RangeQuery.<span class="hljs-keyword">of</span>(r -&gt; r<br>        .field(&quot;price&quot;)<br>        .gte(JsonData.<span class="hljs-keyword">of</span>(maxPrice))<br>    )._toQuery();<br>    <br>    SortOptions sortOptions = SortOptions.<span class="hljs-keyword">of</span>(s -&gt; s<br>        .field(FieldSort.<span class="hljs-keyword">of</span>(f-&gt;f<br>            .field(&quot;id&quot;)<br>            .<span class="hljs-keyword">order</span>(SortOrder.<span class="hljs-keyword">Desc</span>))<br>        )<br>    );<br><br>    SearchResponse&lt;<span class="hljs-keyword">Order</span>&gt; response = elasticsearchClient.<span class="hljs-keyword">search</span>(s -&gt; s<br>        .<span class="hljs-keyword">index</span>(&quot;order-index&quot;)<br>        .query(q -&gt; q<br>            .bool(b -&gt; b<br>                .must(byProduct)<br>                .must(byMaxPrice)<br>            )<br>        )<br>        .<span class="hljs-keyword">from</span>(<span class="hljs-number">0</span>)<br>        .size(<span class="hljs-number">10</span>), <br>        <span class="hljs-keyword">Order</span>.<span class="hljs-keyword">class</span><br>    );<br><br>    List&lt;Hit&lt;<span class="hljs-keyword">Order</span>&gt;&gt; hits = response.hits().hits();<br>    hits.<span class="hljs-keyword">forEach</span>(hit -&gt; &#123;<br>        <span class="hljs-keyword">Order</span> <span class="hljs-keyword">order</span> = hit.source();<br>        List&lt;FieldValue&gt; sortList = hit.sort();<br>    &#125;);<br>&#125;<br></code></pre></td></tr></table></figure>
+<h3 id="深度分页"><a href="#深度分页" class="headerlink" title="深度分页"></a>深度分页</h3><p>在搜索文档的实现中，指定了from和size参数，目的的为了实现分页效果；其中from是游标位置，size是返回数据量大小，类似于MySQL的limit功能。当from过大时Elasticsearch会返回一个错误：<br><code>Result window is too large, from + size must be less than or equal to: [10000]</code></p>
+<p>分析这个错误，需要从搜索的实现原理来入手。在客户端请求到达协调节点后，会从各个分片的数据节点获取数据，因为数据分布不均匀的关系，例如在查询第2页的10条数据时，需要从每个节点都获取20条数据，进行排序来避免数据遗漏。</p>
+<p><img src="/img_convert/3.png" srcset="/img/loading.gif" lazyload></p>
+<p>在之前的版本中，Elasticsearch经常会出现的一个问题是查询1W条以后的数据会非常慢，也就是因为这个原因，解决办法是使用Scroll API，使用快照的思路实现。在最新版中，这种方式已经不再推荐使用，取而待之的是search_after参数。</p>
+<figure class="highlight less"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><code class="hljs less"><span class="hljs-selector-tag">elasticsearchClient</span><span class="hljs-selector-class">.search</span>(s -&gt; s<br>    .<span class="hljs-built_in">index</span>(<span class="hljs-string">&quot;order-index&quot;</span>)<br>    .<span class="hljs-built_in">searchAfter</span>(FieldValue.<span class="hljs-built_in">of</span>(<span class="hljs-number">1878133432</span>))<br>    .<span class="hljs-built_in">sort</span>(sortOptions)<br>    .<span class="hljs-built_in">size</span>(<span class="hljs-number">20</span>),<br>    Order.class<br>);<br></code></pre></td></tr></table></figure>
+<h3 id="聚合功能"><a href="#聚合功能" class="headerlink" title="聚合功能"></a>聚合功能</h3><p>Elasticsearch中聚合常见的应用场景是实现类似于MySQL的sum、count、group by功能，来看一个多参数group by的实现。</p>
+<figure class="highlight pgsql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><code class="hljs pgsql"><span class="hljs-built_in">public</span> <span class="hljs-type">void</span> aggregation() throws IOException &#123;<br>    MultiTermsAggregation aggregation = MultiTermsAggregation.<span class="hljs-keyword">of</span>(s -&gt; s.terms(<br>        MultiTermLookup.<span class="hljs-keyword">of</span>(t-&gt;t.field(&quot;product&quot;)),<br>        MultiTermLookup.<span class="hljs-keyword">of</span>(t-&gt;t.field(&quot;user&quot;))<br>    ));<br><br>    Aggregation priceAggregation = Aggregation.<span class="hljs-keyword">of</span>(s -&gt; s.sum(AggregationBuilders.sum().field(&quot;price&quot;).build()));<br>    Aggregation idAggregation = Aggregation.<span class="hljs-keyword">of</span>(s -&gt; s.valueCount(ValueCountAggregation.<span class="hljs-keyword">of</span>(v -&gt; v.field(&quot;id&quot;))));<br><br>    Aggregation aggs = Aggregation.<span class="hljs-keyword">of</span>(s -&gt; s<br>        .multiTerms(aggregation)<br>        .aggregations(&quot;price&quot;, priceAggregation)<br>        .aggregations(&quot;id&quot;, idAggregation)<br>    );<br><br>    SearchRequest searchRequest = <span class="hljs-built_in">new</span> SearchRequest.Builder()<br>        .<span class="hljs-keyword">index</span>(&quot;order-index&quot;)<br>        .aggregations(&quot;aggs&quot;, aggs)<br>        .build();<br>    SearchResponse&lt;<span class="hljs-type">Void</span>&gt; searchResponse = elasticsearchClient.<span class="hljs-keyword">search</span>(searchRequest, <span class="hljs-type">Void</span>.<span class="hljs-keyword">class</span>);<br>    <span class="hljs-keyword">Aggregate</span> <span class="hljs-keyword">aggregate</span> = searchResponse.aggregations().<span class="hljs-keyword">get</span>(&quot;aggs&quot;);<br>    Buckets&lt;MultiTermsBucket&gt; buckets = <span class="hljs-keyword">aggregate</span>.multiTerms().buckets();<br>    buckets.<span class="hljs-keyword">array</span>().<span class="hljs-keyword">forEach</span>(bu -&gt; &#123;<br>        String product = bu.key().<span class="hljs-keyword">get</span>(<span class="hljs-number">0</span>).stringValue();<br>        String <span class="hljs-keyword">user</span> = bu.key().<span class="hljs-keyword">get</span>(<span class="hljs-number">1</span>).stringValue();<br><br>        <span class="hljs-type">double</span> totalPrice = bu.aggregations().<span class="hljs-keyword">get</span>(&quot;price&quot;).sum().<span class="hljs-keyword">value</span>();;<br>        <span class="hljs-type">double</span> totalNum = bu.aggregations().<span class="hljs-keyword">get</span>(&quot;id&quot;).valueCount().<span class="hljs-keyword">value</span>();<br>    &#125;);<br>&#125;<br></code></pre></td></tr></table></figure>
+
+
+
+
+                
+              </div>
+            
+            <hr/>
+            <div>
+              <div class="post-metas my-3">
+  
+  
+</div>
+
+
+              
+  
+
+  <div class="license-box my-3">
+    <div class="license-title">
+      <div>Elasticsearch Java API Client 8.x使用方式</div>
+      <div>https://ahxinin.com/Elasticsearch Java API Client 8.x使用方式.html</div>
+    </div>
+    <div class="license-meta">
+      
+        <div class="license-meta-item">
+          <div>作者</div>
+          <div>阿昕</div>
+        </div>
+      
+      
+        <div class="license-meta-item license-meta-date">
+          <div>发布于</div>
+          <div>2023年3月31日</div>
+        </div>
+      
+      
+      
+        <div class="license-meta-item">
+          <div>许可协议</div>
+          <div>
+            
+              
+              
+                <a class="print-no-link" target="_blank" href="https://creativecommons.org/licenses/by/4.0/">
+                  <span class="hint--top hint--rounded" aria-label="BY - 署名">
+                    <i class="iconfont icon-by"></i>
+                  </span>
+                </a>
+              
+            
+          </div>
+        </div>
+      
+    </div>
+    <div class="license-icon iconfont"></div>
+  </div>
+
+
+
+              
+                <div class="post-prevnext my-3">
+                  <article class="post-prev col-6">
+                    
+                    
+                      <a href="/Elasticsearch%20Client%20%E8%BF%9B%E9%98%B6%E4%BD%BF%E7%94%A8.html" title="Elasticsearch Client 进阶使用">
+                        <i class="iconfont icon-arrowleft"></i>
+                        <span class="hidden-mobile">Elasticsearch Client 进阶使用</span>
+                        <span class="visible-mobile">上一篇</span>
+                      </a>
+                    
+                  </article>
+                  <article class="post-next col-6">
+                    
+                    
+                      <a href="/%E9%AB%98%E6%80%A7%E8%83%BDMySQL%E7%9A%84%E5%AE%9E%E7%8E%B0%E7%AD%96%E7%95%A5.html" title="高性能MySQL的实现策略">
+                        <span class="hidden-mobile">高性能MySQL的实现策略</span>
+                        <span class="visible-mobile">下一篇</span>
+                        <i class="iconfont icon-arrowright"></i>
+                      </a>
+                    
+                  </article>
+                </div>
+              
+            </div>
+
+            
+          </article>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-col d-none d-lg-block col-lg-2">
+      
+  <aside class="sidebar" style="margin-left: -1rem">
+    <div id="toc">
+  <p class="toc-header">
+    <i class="iconfont icon-list"></i>
+    <span>目录</span>
+  </p>
+  <div class="toc-body" id="toc-body"></div>
+</div>
+
+
+
+  </aside>
+
+
+    </div>
+  </div>
+</div>
+
+
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+  
+
+
+
+
+
+
+
+    
+
+    
+      <a id="scroll-top-button" aria-label="TOP" href="#" role="button">
+        <i class="iconfont icon-arrowup" aria-hidden="true"></i>
+      </a>
+    
+
+    
+
+    
+  </main>
+
+  <footer>
+    <div class="footer-inner">
+  
+    <div class="footer-content">
+       <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a> <i class="iconfont icon-love"></i> <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a> 
+    </div>
+  
+  
+  
+  
+</div>
+
+  </footer>
+
+  <!-- Scripts -->
+  
+  <script  src="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.js" ></script>
+  <link  rel="stylesheet" href="https://lib.baomitu.com/nprogress/0.2.0/nprogress.min.css" />
+
+  <script>
+    NProgress.configure({"showSpinner":false,"trickleSpeed":100})
+    NProgress.start()
+    window.addEventListener('load', function() {
+      NProgress.done();
+    })
+  </script>
+
+
+<script  src="https://lib.baomitu.com/jquery/3.6.4/jquery.min.js" ></script>
+<script  src="https://lib.baomitu.com/twitter-bootstrap/4.6.1/js/bootstrap.min.js" ></script>
+<script  src="/js/events.js" ></script>
+<script  src="/js/plugins.js" ></script>
+
+
+  <script  src="https://lib.baomitu.com/typed.js/2.0.12/typed.min.js" ></script>
+  <script>
+    (function (window, document) {
+      var typing = Fluid.plugins.typing;
+      var subtitle = document.getElementById('subtitle');
+      if (!subtitle || !typing) {
+        return;
+      }
+      var text = subtitle.getAttribute('data-typed-text');
+      
+        typing(text);
+      
+    })(window, document);
+  </script>
+
+
+
+
+  
+    <script  src="/js/img-lazyload.js" ></script>
+  
+
+
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/tocbot/4.20.1/tocbot.min.js', function() {
+    var toc = jQuery('#toc');
+    if (toc.length === 0 || !window.tocbot) { return; }
+    var boardCtn = jQuery('#board-ctn');
+    var boardTop = boardCtn.offset().top;
+
+    window.tocbot.init(Object.assign({
+      tocSelector     : '#toc-body',
+      contentSelector : '.markdown-body',
+      linkClass       : 'tocbot-link',
+      activeLinkClass : 'tocbot-active-link',
+      listClass       : 'tocbot-list',
+      isCollapsedClass: 'tocbot-is-collapsed',
+      collapsibleClass: 'tocbot-is-collapsible',
+      scrollSmooth    : true,
+      includeTitleTags: true,
+      headingsOffset  : -boardTop,
+    }, CONFIG.toc));
+    if (toc.find('.toc-list-item').length > 0) {
+      toc.css('visibility', 'visible');
+    }
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('tocbot' in window) {
+        tocbot.refresh();
+        var toc = jQuery('#toc');
+        if (toc.length === 0 || !tocbot) {
+          return;
+        }
+        if (toc.find('.toc-list-item').length > 0) {
+          toc.css('visibility', 'visible');
+        }
+      }
+    });
+  });
+</script>
+
+
+  <script src=https://lib.baomitu.com/clipboard.js/2.0.11/clipboard.min.js></script>
+
+  <script>Fluid.plugins.codeWidget();</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/anchor-js/4.3.1/anchor.min.js', function() {
+    window.anchors.options = {
+      placement: CONFIG.anchorjs.placement,
+      visible  : CONFIG.anchorjs.visible
+    };
+    if (CONFIG.anchorjs.icon) {
+      window.anchors.options.icon = CONFIG.anchorjs.icon;
+    }
+    var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+    var res = [];
+    for (var item of el) {
+      res.push('.markdown-body > ' + item.trim());
+    }
+    if (CONFIG.anchorjs.placement === 'left') {
+      window.anchors.options.class = 'anchorjs-link-left';
+    }
+    window.anchors.add(res.join(', '));
+
+    Fluid.events.registerRefreshCallback(function() {
+      if ('anchors' in window) {
+        anchors.removeAll();
+        var el = (CONFIG.anchorjs.element || 'h1,h2,h3,h4,h5,h6').split(',');
+        var res = [];
+        for (var item of el) {
+          res.push('.markdown-body > ' + item.trim());
+        }
+        if (CONFIG.anchorjs.placement === 'left') {
+          anchors.options.class = 'anchorjs-link-left';
+        }
+        anchors.add(res.join(', '));
+      }
+    });
+  });
+</script>
+
+
+  
+<script>
+  Fluid.utils.createScript('https://lib.baomitu.com/fancybox/3.5.7/jquery.fancybox.min.js', function() {
+    Fluid.plugins.fancyBox();
+  });
+</script>
+
+
+  <script>Fluid.plugins.imageCaption();</script>
+
+
+
+
+
+<!-- 主题的启动项，将它保持在最底部 -->
+<!-- the boot of the theme, keep it at the bottom -->
+<script  src="/js/boot.js" ></script>
+
+
+  
+
+  <noscript>
+    <div class="noscript-warning">博客在允许 JavaScript 运行的环境下浏览效果更佳</div>
+  </noscript>
+</body>
+</html>
